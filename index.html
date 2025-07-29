@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Adventurers’ Planner</title>
+
+<!-- === PIXELIFY SANS === -->
+<style>
+@font-face {
+  font-family: 'Pixelify Sans';
+  src: url('PixelifySans-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+:root {
+  --bg: #e4dec9;
+  --parchment: #fcfaf1;
+  --ink: #1a1a1a;
+  --accent: #5f6d3c;
+  --yes: #8dbf7e;
+  --maybe: #d0c47d;
+  --no: #b7796b;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  font-family: 'Pixelify Sans', monospace;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.4;
+}
+h1 {
+  text-align: center;
+  padding: 28px 0 12px;
+  font-size: 24px;
+}
+.tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.tab-btn {
+  padding: 8px 28px;
+  font-family: inherit;
+  background: #ece6d2;
+  border: 3px solid var(--accent);
+  cursor: pointer;
+}
+.tab-btn.active {
+  background: var(--parchment);
+  font-weight: bold;
+}
+.tab {
+  display: none;
+  max-width: 800px;
+  margin: auto;
+  border: 3px solid var(--accent);
+  padding: 18px;
+  background: var(--parchment);
+}
+.tab.active { display: block; }
+label {
+  display: block;
+  margin-top: 10px;
+}
+input, select, button {
+  font-family: inherit;
+  font-size: inherit;
+  padding: 6px;
+  margin-top: 4px;
+  border: 2px solid var(--accent);
+  background: #fbf9f2;
+}
+button {
+  cursor: pointer;
+  margin-top: 12px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 18px;
+}
+th, td {
+  border: 2px solid var(--accent);
+  padding: 6px;
+  text-align: center;
+}
+th {
+  background: #d8d2b8;
+}
+.rsvp-btn {
+  width: 60px;
+  margin: 0 1px;
+}
+.notice {
+  text-align: center;
+  margin-top: 12px;
+  color: var(--accent);
+}
+.hidden { display: none; }
+.torch {
+  position: absolute;
+  top: 36px;
+  width: 20px; height: 60px;
+  background: #493826;
+  border: 2px solid #000;
+}
+.torch.left { left: 16px; }
+.torch.right { right: 16px; }
+.torch::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: -26px;
+  width: 24px; height: 24px;
+  background: radial-gradient(circle at 50% 60%, #ffd966 0%, #ff8c00 55%, transparent 70%);
+  animation: flicker 0.28s infinite alternate;
+  filter: blur(.4px);
+}
+@keyframes flicker {
+  from { transform: translateX(-50%) scale(1); }
+  to   { transform: translateX(-50%) scale(1.12); }
+}
+</style>
+</head>
+<body>
+<div class="torch left"></div><div class="torch right"></div>
+<h1>Adventurers’ Planner</h1>
+<div class="tabs">
+  <button class="tab-btn active" data-tab="ledger">Ledger</button>
+  <button class="tab-btn" data-tab="calendar">Calendar</button>
+</div>
+<div id="ledger" class="tab active">
+  <label for="charSelect">Select Your Character:</label>
+  <select id="charSelect">
+    <option value="">-- choose --</option>
+    <option>Kame</option><option>Lagros</option><option>Mr.DM</option>
+    <option>Reginald</option><option>Shiki</option><option>Silo</option>
+  </select>
+  <div id="main" class="hidden">
+    <label>Date: <input type="date" id="newDate"></label>
+    <label>Time: <input type="time" id="newTime"></label>
+    <button id="addSession">Add to Ledger</button>
+    <table id="ledgerTable">
+      <thead><tr><th>Date</th><th>Time</th><th>Your RSVP</th><th>Delete</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <details style="margin-top:20px;">
+      <summary style="cursor:pointer;font-weight:bold;">View RSVP History</summary>
+      <table id="historyTable" style="margin-top:14px;">
+        <thead><tr><th>Character</th><th>Date</th><th>Time</th><th>RSVP</th></tr></thead><tbody></tbody>
+      </table>
+    </details>
+    <div class="notice hidden" id="notice"></div>
+  </div>
+</div>
+<div id="calendar" class="tab">
+  <div style="text-align:center;margin-bottom:12px;">
+    <button id="prevMonth">&lt;</button>
+    <span id="monthLabel" style="margin:0 12px;font-weight:bold;"></span>
+    <button id="nextMonth">&gt;</button>
+  </div>
+  <div class="cal-days" style="display:grid;grid-template-columns:repeat(7,1fr);text-align:center;margin-bottom:4px;">
+    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+  </div>
+  <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;"></div>
+</div>
+<script>
+const CHARACTERS = ['Kame','Lagros','Mr.DM','Reginald','Shiki','Silo'];
+const SESS_KEY='dnd_sessions', NAME_KEY='dnd_char_name', RSVP_KEY='dnd_rsvp_';
+const $=s=>document.querySelector(s);
+const load=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))||f;}catch{return f;}};
+const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
+const to12 = t=>{const[h,m]=t.split(':').map(Number);
+  const suf=h>=12?'PM':'AM'; return ((h+11)%12+1)+':'+String(m).padStart(2,'0')+' '+suf;};
+
+let sessions=load(SESS_KEY,[]), char=localStorage.getItem(NAME_KEY)||'';
+let calMonth=new Date(); calMonth.setDate(1);
+const ledgerTB=$('#ledgerTable tbody'), histTB=$('#historyTable tbody'), noteEl=$('#notice');
+
+$('#charSelect').onchange=()=>{
+  const val = $('#charSelect').value;
+  if (CHARACTERS.includes(val)) {
+    char = val;
+    localStorage.setItem(NAME_KEY, char);
+    $('#main').classList.remove('hidden');
+    renderTable(); renderHistory(); renderCalendar();
+  }
+};
+
+$('#addSession').onclick=()=>{
+  const d=$('#newDate').value, t=$('#newTime').value;
+  if(!d||!t){alert('Pick both date and time.');return;}
+  sessions.push({date:d,time:t});
+  sessions.sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+  save(SESS_KEY,sessions);
+  $('#newDate').value=''; $('#newTime').value='';
+  renderTable(); renderHistory(); renderCalendar();
+};
+
+function renderTable(){
+  ledgerTB.innerHTML='';
+  if(!sessions.length){ledgerTB.innerHTML='<tr><td colspan="4">No sessions yet.</td></tr>';return;}
+  const mine=load(RSVP_KEY+char,{});
+  sessions.forEach(s=>{
+    const key=`${s.date}|${s.time}`, cur=mine[key]||'';
+    const canDelete = char==='Kame';
+    ledgerTB.insertAdjacentHTML('beforeend',`
+      <tr>
+        <td>${s.date}</td>
+        <td>${to12(s.time)}</td>
+        <td>
+          <button class="rsvp-btn" data-k="${key}" data-v="yes"   style="background:${cur==='yes'?'var(--yes)':''}">YES</button>
+          <button class="rsvp-btn" data-k="${key}" data-v="maybe" style="background:${cur==='maybe'?'var(--maybe)':''}">MAYBE</button>
+          <button class="rsvp-btn" data-k="${key}" data-v="no"    style="background:${cur==='no'?'var(--no)':''}">NO</button>
+        </td>
+        <td>${canDelete ? `<button class="delete-btn" data-k="${key}">X</button>` : ''}</td>
+      </tr>`);
+  });
+  document.querySelectorAll('.rsvp-btn').forEach(b=>b.onclick=saveRsvp);
+  if (char === 'Kame') {
+    document.querySelectorAll('.delete-btn').forEach(b => {
+      b.onclick = () => {
+        const k = b.dataset.k;
+        sessions = sessions.filter(s => `${s.date}|${s.time}` !== k);
+        save(SESS_KEY, sessions);
+        CHARACTERS.forEach(c => {
+          const r = load(RSVP_KEY + c, {});
+          delete r[k];
+          save(RSVP_KEY + c, r);
+        });
+        renderTable(); renderHistory(); renderCalendar();
+      };
+    });
+  }
+}
+
+function saveRsvp(){
+  const k=this.dataset.k, v=this.dataset.v, obj=load(RSVP_KEY+char,{});
+  if(obj[k] === v) {
+    delete obj[k];
+  } else {
+    obj[k] = v;
+  }
+  save(RSVP_KEY + char, obj);
+  noteEl.textContent=`${char} set RSVP to ${obj[k] ? obj[k].toUpperCase() : 'NONE'}.`;
+  noteEl.classList.remove('hidden'); setTimeout(()=>noteEl.classList.add('hidden'),1800);
+  renderTable(); renderHistory(); renderCalendar();
+}
+
+function renderHistory(){
+  histTB.innerHTML='';
+  if(!sessions.length){histTB.innerHTML='<tr><td colspan="4">No sessions yet.</td></tr>';return;}
+  CHARACTERS.forEach(c=>{
+    const r=load(RSVP_KEY+c,{});
+    sessions.forEach(s=>{
+      const key=`${s.date}|${s.time}`, sym=r[key]?r[key].toUpperCase():'';
+      histTB.insertAdjacentHTML('beforeend',`<tr><td>${c}</td><td>${s.date}</td><td>${to12(s.time)}</td><td>${sym}</td></tr>`);
+    });
+  });
+}
+
+function renderCalendar(){
+  const label=$('#monthLabel'), grid=$('#calGrid');
+  const mo=calMonth.getMonth(), yr=calMonth.getFullYear();
+  label.textContent=calMonth.toLocaleString('default',{month:'long'})+' '+yr;
+  grid.innerHTML='';
+  let start=new Date(yr,mo,1).getDay(), days=new Date(yr,mo+1,0).getDate();
+  for(let i=0;i<start;i++)grid.innerHTML+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const dt=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    let match=sessions.filter(s=>s.date===dt).map(s=>to12(s.time));
+    grid.innerHTML+=`<div style="border:2px solid var(--accent);min-height:60px;padding:4px;">
+      <strong>${d}</strong><br>${match.join('<br>')}</div>`;
+  }
+}
+$('#prevMonth').onclick=()=>{calMonth.setMonth(calMonth.getMonth()-1); renderCalendar();};
+$('#nextMonth').onclick=()=>{calMonth.setMonth(calMonth.getMonth()+1); renderCalendar();};
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  }
+});
+</script>
+</body>
+</html>
