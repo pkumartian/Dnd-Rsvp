@@ -153,10 +153,6 @@ th {
   .torch { display: none; }
   .tab { padding: 8px; }
 }
-#newNotes {
-  width: 100%;
-  box-sizing: border-box;
-}
 </style>
 </head>
 <body>
@@ -175,7 +171,7 @@ th {
   <div id="main" class="hidden">
     <label>Date: <input type="date" id="newDate" aria-label="Session date"></label>
     <label>Time: <input type="time" id="newTime" aria-label="Session time"></label>
-    <label>Notes: <textarea id="newNotes" aria-label="Session notes" rows="1" style="resize:vertical;width:100%"></textarea></label>
+    <label>Notes: <textarea id="newNotes" aria-label="Session notes" rows="1" style="resize:vertical"></textarea></label>
     <button id="addSession" aria-label="Add session">Add to Ledger</button>
     <table id="ledgerTable" aria-label="Session ledger">
       <thead><tr><th>Date</th><th>Time</th><th>Notes</th><th>Your RSVP</th><th>Delete</th></tr></thead>
@@ -208,7 +204,7 @@ th {
 </div>
 <div id="toast" class="hidden" role="status" aria-live="polite"></div>
 <script>
-const DEF_CHARACTERS = ['Kame','Lagros','Mr.DM','Reginald','Shiki','Silo'];
+const DEF_CHARACTERS = ['Kame','Lagros','James','Reginald','Shiki','Silo'];
 const SESS_KEY='dnd_sessions', CHAR_KEY='dnd_characters', NAME_KEY='dnd_char_name', RSVP_KEY='dnd_rsvp_';
 const $=s=>document.querySelector(s);
 
@@ -222,7 +218,6 @@ let char=localStorage.getItem(NAME_KEY)||'';
 let calMonth=new Date(); calMonth.setDate(1);
 const ledgerTB=$('#ledgerTable tbody'), histTB=$('#historyTable tbody'), noteEl=$('#notice');
 
-// Toast
 function showToast(msg) {
   const toast = $('#toast');
   toast.textContent = msg;
@@ -230,7 +225,6 @@ function showToast(msg) {
   setTimeout(() => toast.classList.add('hidden'), 2000);
 }
 
-// Character select rendering
 function renderCharSelect() {
   const sel = $('#charSelect');
   sel.innerHTML = `<option value="">-- choose --</option>` + CHARACTERS.map(c =>
@@ -238,7 +232,6 @@ function renderCharSelect() {
   ).join('');
   sel.value = char;
 }
-
 renderCharSelect();
 
 $('#charSelect').onchange=()=>{
@@ -253,7 +246,6 @@ $('#charSelect').onchange=()=>{
   }
 };
 
-// Add session, with duplicate check
 $('#addSession').onclick=()=>{
   const d=$('#newDate').value, t=$('#newTime').value, notes=$('#newNotes').value.trim();
   if(!d||!t){showToast('Pick both date and time.');return;}
@@ -339,12 +331,11 @@ function renderCalendar(){
   for(let d=1;d<=days;d++){
     const dt=`${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     let match=sessions.filter(s=>s.date===dt);
-    // RSVP status indicators
     let rsvpIndicators = match.map(s => {
       let key = `${s.date}|${s.time}`;
       let status = char ? load(RSVP_KEY + char, {})[key] : '';
       if (status === "yes") return "<span style='color:var(--yes);font-weight:bold;' title='YES'>Y</span>";
-      if (status === "maybe") return "<span style='color:var(--maybe);font-weight:bold;' title='MAYBE'>M</span>";
+      if (status === "maybe") return "<span style='color:var(--maybe);font-weight:bold;' title='M'>M</span>";
       if (status === "no") return "<span style='color:var(--no);font-weight:bold;' title='NO'>N</span>";
       return "<span style='color:var(--accent);font-weight:bold;' title='No RSVP'>?</span>";
     });
@@ -365,7 +356,6 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   }
 });
 
-// Export/Import
 $('#exportData').onclick = () => {
   const data = {
     sessions,
@@ -408,12 +398,16 @@ $('#importData').onchange = (e) => {
   reader.readAsText(file);
 };
 
-// Dark Mode Toggle
 $('#darkModeBtn').onclick = () => {
   document.body.classList.toggle('dark');
   save('dnd_dark_mode', document.body.classList.contains('dark'));
 };
 if (load('dnd_dark_mode', false)) document.body.classList.add('dark');
+
+if(char && CHARACTERS.includes(char)) {
+  $('#main').classList.remove('hidden');
+  renderTable(); renderHistory(); renderCalendar();
+}
 </script>
 </body>
 </html>
