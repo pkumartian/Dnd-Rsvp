@@ -245,7 +245,7 @@ function showToast(msg) {
 function renderCharSelect() {
   const sel = $('#charSelect');
   sel.innerHTML = `<option value="">-- choose --</option>` + CHARACTERS.map(c =>
-    `<option value="${c}">${c}${c==='Kame' ? ' (DM)' : ''}</option>`
+    `<option value="${c}">${c}${c==='Kame' ? ' ★' : ''}</option>`
   ).join('');
   sel.value = char;
   $('#dmBadge').classList.toggle('hidden', char !== 'Kame');
