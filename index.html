@@ -178,7 +178,7 @@ th {
 <div id="ledger" class="tab active">
   <label for="charSelect">Select Your Character:</label>
   <select id="charSelect" aria-label="Select your character"></select>
-  <span id="dmBadge" class="dm-badge hidden">DM</span>
+  <span id="dmBadge" class="dm-badge hidden">★</span>
   <div id="main" class="hidden">
     <label>Date: <input type="date" id="newDate" aria-label="Session date"></label>
     <label>Time: <input type="time" id="newTime" aria-label="Session time"></label>
@@ -195,11 +195,6 @@ th {
       </table>
     </details>
     <div class="notice hidden" id="notice"></div>
-    <div style="margin-top:16px;">
-      <label for="newChar">Add Character: <input id="newChar" type="text" aria-label="Add character"></label>
-      <button id="addChar" aria-label="Add character">Add</button>
-      <button id="removeChar" aria-label="Remove selected character">Remove Selected Character</button>
-    </div>
     <div style="margin-top:16px;">
       <button id="exportData" aria-label="Export sessions and RSVPs">Export Sessions/RSVPs</button>
       <input type="file" id="importData" aria-label="Import sessions/RSVPs" accept=".json" style="display:none;">
@@ -223,6 +218,7 @@ th {
 const DEF_CHARACTERS = ['Kame','Lagros','Mr.DM','Reginald','Shiki','Silo'];
 const SESS_KEY='dnd_sessions', CHAR_KEY='dnd_characters', NAME_KEY='dnd_char_name', RSVP_KEY='dnd_rsvp_';
 const $=s=>document.querySelector(s);
+
 const load=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))||f;}catch{return f;}};
 const save=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 const to12 = t=>{const[h,m]=t.split(':').map(Number);
@@ -264,34 +260,6 @@ $('#charSelect').onchange=()=>{
     $('#main').classList.add('hidden');
     $('#dmBadge').classList.add('hidden');
   }
-};
-
-$('#addChar').onclick=()=>{
-  const name = $('#newChar').value.trim();
-  if (name && !CHARACTERS.includes(name)) {
-    CHARACTERS.push(name);
-    save(CHAR_KEY, CHARACTERS);
-    renderCharSelect();
-    showToast(`Character "${name}" added!`);
-  } else {
-    showToast("Name is empty or already exists.");
-  }
-  $('#newChar').value='';
-};
-
-$('#removeChar').onclick=()=>{
-  const selected = $('#charSelect').value;
-  if (!selected) { showToast("No character selected."); return; }
-  if (selected === 'Kame') { showToast("Cannot remove DM."); return; }
-  CHARACTERS = CHARACTERS.filter(c=>c!==selected);
-  save(CHAR_KEY, CHARACTERS);
-  if (char === selected) {
-    char = '';
-    localStorage.removeItem(NAME_KEY);
-    $('#main').classList.add('hidden');
-  }
-  renderCharSelect();
-  showToast(`Character "${selected}" removed!`);
 };
 
 // Add session, with duplicate check
@@ -337,11 +305,6 @@ function renderTable(){
         const k = b.dataset.k;
         sessions = sessions.filter(s => `${s.date}|${s.time}` !== k);
         save(SESS_KEY, sessions);
-        CHARACTERS.forEach(c => {
-          const r = load(RSVP_KEY + c, {});
-          delete r[k];
-          save(RSVP_KEY + c, r);
-        });
         renderTable(); renderHistory(); renderCalendar();
         showToast("Session deleted!");
       };
@@ -349,16 +312,11 @@ function renderTable(){
   }
 }
 
-function saveRsvp(){
-  const k=this.dataset.k, v=this.dataset.v, obj=load(RSVP_KEY+char,{});
-  if(obj[k] === v) {
-    delete obj[k];
-  } else {
-    obj[k] = v;
-  }
-  save(RSVP_KEY + char, obj);
-  noteEl.textContent=`${char} set RSVP to ${obj[k] ? obj[k].toUpperCase() : 'NONE'}.`;
-  noteEl.classList.remove('hidden'); setTimeout(()=>noteEl.classList.add('hidden'),1800);
+function saveRsvp(e){
+  const key=e.target.dataset.k, val=e.target.dataset.v;
+  let mine=load(RSVP_KEY+char,{});
+  mine[key]=val;
+  save(RSVP_KEY+char,mine);
   renderTable(); renderHistory(); renderCalendar();
 }
 
@@ -370,7 +328,7 @@ function renderHistory(){
     sessions.forEach(s=>{
       const key=`${s.date}|${s.time}`, sym=r[key]?r[key].toUpperCase():'';
       histTB.insertAdjacentHTML('beforeend',`<tr>
-        <td>${c}${c==='Kame' ? ' <span class="dm-badge">DM</span>' : ''}</td>
+        <td>${c}${c==='Kame' ? ' <span class="dm-badge">★</span>' : ''}</td>
         <td>${s.date}</td>
         <td>${to12(s.time)}</td>
         <td>${sym}</td>
